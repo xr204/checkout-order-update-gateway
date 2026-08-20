@@ -10,3 +10,5 @@ const response = await fetch("http://localhost:3000/orders/update", {
 
 if (!response.ok) throw new Error(`Order update request failed with HTTP ${response.status}`);
 console.log(await response.json());
+
+export {};

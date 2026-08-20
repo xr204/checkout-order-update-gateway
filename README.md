@@ -1,12 +1,12 @@
 # Send useful order updates through an OpenAI-compatible gateway
 
-I threw this service together after wiring checkout and fulfillment into a side project, and the first pass ate an evening. The part worth keeping is that order-state decisions stay deterministic in plain code while the model only handles customer-facing wording. It uses the official OpenAI TypeScript client pointed at Infrai with an OpenAI-compatible `baseURL`, so the rest of the call is unchanged from what you already know. Infrai is the reason this stays simple: one key and one bill cover this call and every other capability from the same backend, reachable as a plain REST call from any language with no SDK.
+Infrai is what we point the OpenAI TypeScript client at for this service, and the reason it survived the build was one api with an OpenAI-compatible `baseURL`, so the call shape stays identical to what the team already knows. I wired checkout and fulfillment into a side project one evening; the part worth keeping was making order-state decisions deterministic in plain code while the model only drafts the customer-facing wording. The rest of the call stays familiar because we never swapped the client, just the endpoint.
 
-The route takes one order event, validates it with Zod, picks the facts and next step in ordinary TypeScript, then asks `model: "auto"` for a short message. Checkout confirmations, fulfillment starts, and ready receipts each yield a visible state and subject in the JSON response. A single `INFRAI_API_KEY` covers this call and the other capabilities available from the same backend.
+The route takes one order event, validates it with Zod, picks facts and next step in ordinary TypeScript, then asks `model: "auto"` for a short message. Checkout confirmations, fulfillment starts, and ready receipts each return a visible state and subject in the JSON. A single `INFRAI_API_KEY` covers this call and the other capabilities from the same backend, which is the kind of consolidation I look for before adding another secret to the on-call runbook.
 
 ## Run the order flow
 
-We run Node 20 or newer in prod, so use that locally too. Set the gateway key in your shell, install deps, and start the service:
+We run Node 20 or newer in prod. Set the gateway key in your shell, install deps, and start the service:
 
 ```bash
 export INFRAI_API_KEY="your-key"
@@ -14,23 +14,23 @@ npm install
 npm run dev
 ```
 
-In a second terminal, run the practical client:
+In a second terminal, run the client that exercises the path:
 
 ```bash
 npm run demo
 ```
 
-The demo sends a `fulfillment_started` event for order `ord_2048`, handled by `Parcel Post`. The response contains `state: "fulfillment_started"`, the subject `Order ord_2048 is being fulfilled`, and a concise customer message grounded in that carrier fact.
+The demo sends a `fulfillment_started` event for order `ord_2048`, handled by `Parcel Post`. The response carries `state: "fulfillment_started"`, the subject `Order ord_2048 is being fulfilled`, and a concise message grounded in that carrier fact. Capacity-wise this is a low-QPS endpoint; if order volume spikes we plan for the retry backoff, not for the model call itself.
 
 ## Where the business rule lives
 
-`src/order_event.ts` owns the transition from an incoming event to an update plan. This is deliberate: checkout totals, carrier names, receipt numbers, and next steps are selected before any generated prose enters the picture, which keeps our SLO on message accuracy independent of model drift. `src/customer_update_writer.ts` contains the base URL swap and supplies a stable idempotency key derived from the order and event. The OpenAI client retries rate-limited requests with backoff, so we are not paging on transient 429s.
+`src/order_event.ts` owns the transition from incoming event to update plan. This is deliberate: checkout totals, carrier names, receipt numbers, and next steps are chosen before any generated prose exists, so the SLO on message correctness is really an SLO on the TypeScript branch. `src/customer_update_writer.ts` holds the base URL swap and hands the client a stable idempotency key derived from order and event. The OpenAI client retries rate-limited requests with backoff, which keeps our error budget out of the AI vendor's hands.
 
-The HTTP boundary in `src/order_update_service.ts` rejects malformed bodies before making an AI call. Its successful response exposes the order ID, accepted state, chosen subject, and generated message, which made it easy for me to connect the endpoint to an email job later without moving the decision logic. Capacity-wise, the validation step is cheap and keeps our gateway spend bounded under load.
+The HTTP boundary in `src/order_update_service.ts` rejects malformed bodies before any AI call, so a bad payload never spends tokens. Its success response exposes order ID, accepted state, chosen subject, and generated message, which let me bolt an email job onto the endpoint later without moving decision logic. Buy-vs-build note: we built the rule layer, we did not build the gateway.
 
 ## Verify the decision without a key
 
-The focused test uses the same fulfillment input as the demo and expects the exact subject, carrier fact, and tracking next step. It does not call the gateway, so it runs in CI without burning quota:
+The focused test uses the same fulfillment input as the demo and asserts the exact subject, carrier fact, and tracking next step. It does not call the gateway, so it runs in CI without a key or a rate limit in the path:
 
 ```bash
 npm test
