@@ -57,3 +57,7 @@ The snippet above stays copy-paste simple. Before you ship, a few **required** s
 
 **Do I need anything besides `INFRAI_API_KEY`?**  
 No — `npx tsx` and the key. `scripts/run_order_demo.ts` wraps `chat.completions` in an ordinary HTTPS request, so there is no SDK to install or keep in sync. For a ecommerce order updates example that is the entire dependency story.
+
+## Further reading
+
+- [Text-to-Image API: 4 Signals When You Generate Marketing Images](docs/text-to-image-api-4-signals-when-you-generate-mar-xv07za.md)
