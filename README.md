@@ -60,4 +60,5 @@ No — `npx tsx` and the key. `scripts/run_order_demo.ts` wraps `chat.completion
 
 ## Further reading
 
+- [Image Generation API Explained — Single-Endpoint Trade-offs for 4 Providers in 2026](docs/image-generation-api-explained-single-endpoint-tr-43us7y.md)
 - [Text-to-Image API: 4 Signals When You Generate Marketing Images](docs/text-to-image-api-4-signals-when-you-generate-mar-xv07za.md)
